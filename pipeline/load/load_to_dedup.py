@@ -67,7 +67,7 @@ for listTables in tables:
                 .option("query", f'select * from {listTables[0]}') \
                 .load()
 
-    x_load_previous = app.createDataFrame([], x_load_current.schema)
+    x_load_previous = app.createDataFrame([], x_load_current.schema) # this can be replace by a "create table like ..."
 
     previous_sql = """
         SELECT count(*)
@@ -86,7 +86,7 @@ for listTables in tables:
                 .load()
             break
         else:
-            print("creating previous table....")
+            print("creating previous table....") # this can be replace by a "create table like ..."
             x_load_previous.write \
                 .format(SNOWFLAKE_SOURCE_NAME) \
                 .options(**sfOptions) \
@@ -98,11 +98,12 @@ for listTables in tables:
     x_dedup = x_load_current.subtract(x_load_previous)
 
     print("saving...")
+    sfOptions['schema'] = 'silver'
     x_dedup.write \
         .format(SNOWFLAKE_SOURCE_NAME) \
         .options(**sfOptions) \
         .option("dbtable", f'{listTables[2]}')\
-        .mode("append") \
+        .mode("overwrite") \
         .save()
 
 cur.close()

@@ -33,8 +33,8 @@ app = SparkSession.builder.appName("myapp").getOrCreate()
 print("reads parquet:")
 readsParquet=app.read.parquet("./data/trends.parquet")
 readsParquetWithAggregates = readsParquet\
-    .withColumn("created_at", lit(datetime.datetime.now()))\
-    .withColumn("source", lit("data/trends.parquet"))
+    .withColumn("etl_created_at", lit(datetime.datetime.now()))\
+    .withColumn("etl_source", lit("data/trends.parquet"))
 print(readsParquetWithAggregates.count()) # 9265028
 readsParquetWithAggregates.printSchema()
 # root
@@ -54,8 +54,8 @@ readsParquetWithAggregates.show()
 print("texts *.json:")
 textsJson = app.read.option("multiline", "true").json("./data/texts/*.json")
 textsJsonWithAggregates = textsJson\
-    .withColumn("created_at", lit(datetime.datetime.now()))\
-    .withColumn("source", lit("data/texts/*.json"))
+    .withColumn("etl_created_at", lit(datetime.datetime.now()))\
+    .withColumn("etl_source", lit("data/texts/*.json"))
 print(textsJsonWithAggregates.count()) # 2286
 textsJsonWithAggregates.printSchema()
 # root
@@ -77,8 +77,8 @@ print("entities txt:")
 entitiesTxt = app.read.text("./data/entities.txt")
 entitiesWithAggregates = entitiesTxt\
     .withColumnRenamed("value", "name")\
-    .withColumn("created_at", lit(datetime.datetime.now()))\
-    .withColumn("source", lit("data/entities.txt"))
+    .withColumn("etl_created_at", lit(datetime.datetime.now()))\
+    .withColumn("etl_source", lit("data/entities.txt"))
 print(entitiesWithAggregates.count()) # 602
 entitiesWithAggregates.printSchema()
 # root
@@ -123,5 +123,5 @@ for saving in savings:
             .format(SNOWFLAKE_SOURCE_NAME)\
             .options(**sfOptions)\
             .option("dbtable", saving[1])\
-            .mode("append")\
+            .mode("overwrite")\
             .save()

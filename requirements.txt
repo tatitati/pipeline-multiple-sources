@@ -1,0 +1,13 @@
+joblib
+sklearn
+pyfunctional
+jsonschema==3.0.1
+pyspark==3.1.1
+numpy
+pyarrow
+certifi
+json-flatten
+pandas
+botocore==1.20.106
+boto3
+snowflake-connector-python
