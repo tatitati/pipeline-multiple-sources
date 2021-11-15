@@ -99,12 +99,6 @@ parser.read("../pipeline.conf")
 snowflake_username = parser.get("snowflake_credentials", "username")
 snowflake_password = parser.get("snowflake_credentials", "password")
 snowflake_account_name = parser.get("snowflake_credentials", "account_name")
-snow_conn = snowflake.connector.connect(
-    user = snowflake_username,
-    password = snowflake_password,
-    account = snowflake_account_name,
-    database="books",
-    schema="bronze")
 SNOWFLAKE_SOURCE_NAME = "net.snowflake.spark.snowflake"
 sfOptions = {
     "sfURL": f'{snowflake_account_name}.snowflakecomputing.com/',
