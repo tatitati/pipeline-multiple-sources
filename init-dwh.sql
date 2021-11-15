@@ -4,6 +4,9 @@ create schema if not exists bronze;
 create schema if not exists silver;
 create schema if not exists gold;
 
+--
+-- bronze
+--
 create or replace table books.bronze.entities_current_load(
     id number not null autoincrement primary key,
     name varchar not null unique,
@@ -51,3 +54,14 @@ create or replace table books.bronze.reads_dedup(
     source varchar not null,
     md5 varchar not null
 );
+
+--
+-- silver
+--
+
+
+
+
+--
+-- gold
+--
