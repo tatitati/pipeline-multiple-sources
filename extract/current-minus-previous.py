@@ -56,8 +56,8 @@ snow_conn = snowflake.connector.connect(
 
 tables = [
     ['entities_current_load', 'entities_previous_load', 'entities_dedup'],
-    ['texts_current_load', 'texts_previous_load', 'texts_dedup'],
-    ['reads_current_load', 'reads_previous_load', 'reads_dedup'],
+    ['texts_current_load',    'texts_previous_load',    'texts_dedup'],
+    ['reads_current_load',    'reads_previous_load',    'reads_dedup'],
 ]
 
 

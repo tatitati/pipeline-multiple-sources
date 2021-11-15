@@ -110,26 +110,18 @@ sfOptions = {
     "parallelism": "64"
 }
 
-if entitiesWithAggregates.count() > 0:
-    entitiesWithAggregates.write\
-        .format(SNOWFLAKE_SOURCE_NAME)\
-        .options(**sfOptions)\
-        .option("dbtable", "entities_current_load")\
-        .mode("append")\
-        .save()
+savings = [
+    #[ df , table ]
+    [entitiesWithAggregates, "entities_current_load"],
+    [textsJsonWithAggregates, "texts_current_load"],
+    [readsParquetWithAggregates, "reads_current_load"],
+]
 
-if textsJsonWithAggregates.count() > 0:
-    textsJsonWithAggregates.write\
-        .format(SNOWFLAKE_SOURCE_NAME)\
-        .options(**sfOptions)\
-        .option("dbtable", "texts_current_load")\
-        .mode("append")\
-        .save()
-
-if readsParquetWithAggregates.count() > 0:
-    readsParquetWithAggregates.write\
-        .format(SNOWFLAKE_SOURCE_NAME)\
-        .options(**sfOptions)\
-        .option("dbtable", "reads_current_load")\
-        .mode("append")\
-        .save()
+for saving in savings:
+    if saving[0].count() > 0:
+        saving[0].write\
+            .format(SNOWFLAKE_SOURCE_NAME)\
+            .options(**sfOptions)\
+            .option("dbtable", saving[1])\
+            .mode("append")\
+            .save()
