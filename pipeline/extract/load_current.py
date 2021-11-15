@@ -31,7 +31,7 @@ app = SparkSession.builder.appName("myapp").getOrCreate()
 # extract
 #
 print("reads parquet:")
-readsParquet=app.read.parquet("../data/trends.parquet")
+readsParquet=app.read.parquet("./data/trends.parquet")
 readsParquetWithAggregates = readsParquet\
     .withColumn("created_at", lit(datetime.datetime.now()))\
     .withColumn("source", lit("data/trends.parquet"))
@@ -52,7 +52,7 @@ readsParquetWithAggregates.show()
 # |2010-10-29 07:00:00|  16161|f4f3bb780d978465e...|             3125|
 
 print("texts *.json:")
-textsJson = app.read.option("multiline", "true").json("../data/texts/*.json")
+textsJson = app.read.option("multiline", "true").json("./data/texts/*.json")
 textsJsonWithAggregates = textsJson\
     .withColumn("created_at", lit(datetime.datetime.now()))\
     .withColumn("source", lit("data/texts/*.json"))
@@ -74,7 +74,7 @@ textsJsonWithAggregates.show()
 # |66cbf13be88d3aa7a...| Sylwa Paege, —Wh...|
 
 print("entities txt:")
-entitiesTxt = app.read.text("../data/entities.txt")
+entitiesTxt = app.read.text("./data/entities.txt")
 entitiesWithAggregates = entitiesTxt\
     .withColumnRenamed("value", "name")\
     .withColumn("created_at", lit(datetime.datetime.now()))\

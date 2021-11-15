@@ -2,4 +2,4 @@
 *.pdf
 problem.gz
 *.pyc
-pipeline.conf
+pipeline/pipeline.conf
