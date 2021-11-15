@@ -70,7 +70,7 @@ for table in tables:
     cur = snow_conn.cursor()
     cur.execute(create_stream_sql)
 
-    print("merting into table with stream")
+    print("merging into table with stream")
     merge_sql = """
             merge into BOOKS.silver.TEXTS_STREAM t_stream
                 using(
