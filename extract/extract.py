@@ -85,3 +85,58 @@ entitiesTxt.show()
 # |       Ned|
 
 
+parser = configparser.ConfigParser()
+parser.read("../pipeline.conf")
+snowflake_username = parser.get("snowflake_credentials", "username")
+snowflake_password = parser.get("snowflake_credentials", "password")
+snowflake_account_name = parser.get("snowflake_credentials", "account_name")
+
+# get date of the last ingestion date from
+users_last_ingestion: datetime.datetime = datetime.datetime(1000, 4, 13)
+orders_last_ingestion: datetime.datetime = datetime.datetime(1000, 4, 13)
+
+snow_conn = snowflake.connector.connect(
+    user = snowflake_username,
+    password = snowflake_password,
+    account = snowflake_account_name,
+    database="books",
+    schema="bronze"
+)
+
+try:
+    users_sql = """
+        select max(created_at) 
+        from "books"."BRONZE"."entities_dedup";
+    """
+
+    orders_sql = """
+        select max(created_at) 
+        from "books"."BRONZE"."reads_dedup";
+    """
+    cur = snow_conn.cursor()
+    cur.execute(users_sql)
+    for (col1) in cur:
+        if col1[0] != None:
+            users_last_ingestion = col1[0]
+        break;
+    cur.close()
+
+    cur = snow_conn.cursor()
+    cur.execute(orders_sql)
+    for (col1) in cur:
+        if col1[0] != None:
+            orders_last_ingestion = col1[0]
+        break;
+except ProgrammingError as e:
+    print(e.msg)
+finally:
+    cur.close()
+
+# extract data only since the last ingestion date
+context = SparkContext(master="local[*]", appName="readJSON")
+
+spark = SparkSession\
+    .builder\
+    .master("local")\
+    .appName("PySpark_MySQL_test")\
+    .getOrCreate()
