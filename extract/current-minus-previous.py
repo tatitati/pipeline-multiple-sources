@@ -85,13 +85,24 @@ for listTables in tables:
                 .option("query", f'select * from {listTables[1]}') \
                 .load()
             break
+        else:
+            print("creating previous table....")
+            x_load_previous.write \
+                .format(SNOWFLAKE_SOURCE_NAME) \
+                .options(**sfOptions) \
+                .option("dbtable", f'{listTables[1]}') \
+                .mode("append") \
+                .save()
 
+    print("MINUS...")
     x_dedup = x_load_current.subtract(x_load_previous)
-    x_dedup.show()
 
+    print("saving...")
     x_dedup.write \
         .format(SNOWFLAKE_SOURCE_NAME) \
         .options(**sfOptions) \
         .option("dbtable", f'{listTables[2]}')\
         .mode("append") \
         .save()
+
+cur.close()
