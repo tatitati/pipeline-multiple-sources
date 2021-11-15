@@ -30,20 +30,19 @@ app = SparkSession.builder.appName("myapp").getOrCreate()
 #
 # extract
 #
-readsParquet=app.read.parquet("../data/trends.parquet")
-textsJson = app.read.option("multiline", "true").json("../data/texts/*.json")
-entitiesTxt = app.read.text("../data/entities.txt")
-
-
 print("reads parquet:")
-print(readsParquet.count()) # 9265028
-readsParquet.printSchema()
+readsParquet=app.read.parquet("../data/trends.parquet")
+readsParquetWithAggregates = readsParquet\
+    .withColumn("created_at", lit(datetime.datetime.now()))\
+    .withColumn("source", lit("data/trends.parquet"))
+print(readsParquetWithAggregates.count()) # 9265028
+readsParquetWithAggregates.printSchema()
 # root
 #  |-- datetime: timestamp (nullable = true)
 #  |-- readers: long (nullable = true)
 #  |-- text_id: string (nullable = true)
 #  |-- __index_level_0__: long (nullable = true)
-readsParquet.show()
+readsParquetWithAggregates.show()
 # +-------------------+-------+--------------------+-----------------+
 # |           datetime|readers|             text_id|__index_level_0__|
 # +-------------------+-------+--------------------+-----------------+
@@ -53,12 +52,16 @@ readsParquet.show()
 # |2010-10-29 07:00:00|  16161|f4f3bb780d978465e...|             3125|
 
 print("texts *.json:")
-print(textsJson.count()) # 2286
-textsJson.printSchema()
+textsJson = app.read.option("multiline", "true").json("../data/texts/*.json")
+textsJsonWithAggregates = textsJson\
+    .withColumn("created_at", lit(datetime.datetime.now()))\
+    .withColumn("source", lit("data/texts/*.json"))
+print(textsJsonWithAggregates.count()) # 2286
+textsJsonWithAggregates.printSchema()
 # root
 #  |-- id: string (nullable = true)
 #  |-- text: string (nullable = true)
-textsJson.show()
+textsJsonWithAggregates.show()
 # +--------------------+--------------------+
 # |                  id|                text|
 # +--------------------+--------------------+
@@ -71,6 +74,7 @@ textsJson.show()
 # |66cbf13be88d3aa7a...| Sylwa Paege, —Wh...|
 
 print("entities txt:")
+entitiesTxt = app.read.text("../data/entities.txt")
 entitiesWithAggregates = entitiesTxt\
     .withColumnRenamed("value", "name")\
     .withColumn("created_at", lit(datetime.datetime.now()))\
@@ -95,17 +99,12 @@ parser.read("../pipeline.conf")
 snowflake_username = parser.get("snowflake_credentials", "username")
 snowflake_password = parser.get("snowflake_credentials", "password")
 snowflake_account_name = parser.get("snowflake_credentials", "account_name")
-
-
 snow_conn = snowflake.connector.connect(
     user = snowflake_username,
     password = snowflake_password,
     account = snowflake_account_name,
     database="books",
-    schema="bronze"
-)
-
-# extract data only since the last ingestion date
+    schema="bronze")
 SNOWFLAKE_SOURCE_NAME = "net.snowflake.spark.snowflake"
 sfOptions = {
     "sfURL": f'{snowflake_account_name}.snowflakecomputing.com/',
@@ -121,6 +120,22 @@ if entitiesWithAggregates.count() > 0:
     entitiesWithAggregates.write\
         .format(SNOWFLAKE_SOURCE_NAME)\
         .options(**sfOptions)\
-        .option("dbtable", "entities_current")\
+        .option("dbtable", "entities_current_load")\
+        .mode("append")\
+        .save()
+
+if textsJsonWithAggregates.count() > 0:
+    textsJsonWithAggregates.write\
+        .format(SNOWFLAKE_SOURCE_NAME)\
+        .options(**sfOptions)\
+        .option("dbtable", "texts_current_load")\
+        .mode("append")\
+        .save()
+
+if readsParquetWithAggregates.count() > 0:
+    readsParquetWithAggregates.write\
+        .format(SNOWFLAKE_SOURCE_NAME)\
+        .options(**sfOptions)\
+        .option("dbtable", "reads_current_load")\
         .mode("append")\
         .save()
