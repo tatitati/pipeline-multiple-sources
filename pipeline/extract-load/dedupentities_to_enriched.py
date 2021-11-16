@@ -8,24 +8,29 @@ from pyspark.sql import SparkSession
 from pyspark import SparkContext
 import configparser
 import datetime
+from pyspark.sql.functions import udf
 import os
 import snowflake.connector
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import StructType, StructField, IntegerType, DateType, TimestampType, StringType
 from snowflake.connector import ProgrammingError
+from joblib import load
 
-jarPath = '/Users/tati/lab/de/pipeline-user-orders/jars'
+
+
+jarPath='/Users/tati/lab/de/pipeline-user-orders/jars'
 jars = [
     # spark-mysql
     f'{jarPath}/spark-mysql/mysql-connector-java-8.0.12.jar',
     # spark-snowflake
     f'{jarPath}/spark-snowflake/snowflake-jdbc-3.13.10.jar',
-    f'{jarPath}/spark-snowflake/spark-snowflake_2.12-2.9.2-spark_3.1.jar',  # scala 2.12 + pyspark 3.1
+    f'{jarPath}/spark-snowflake/spark-snowflake_2.12-2.9.2-spark_3.1.jar', # scala 2.12 + pyspark 3.1
 ]
 os.environ['PYSPARK_SUBMIT_ARGS'] = f'--jars {",".join(jars)}  pyspark-shell'
 
 context = SparkContext(master="local[*]", appName="readJSON")
 app = SparkSession.builder.appName("myapp").getOrCreate()
+
 
 parser = configparser.ConfigParser()
 parser.read("../pipeline.conf")
@@ -38,36 +43,38 @@ sfOptions = {
     "sfUser": snowflake_username,
     "sfPassword": snowflake_password,
     "sfDatabase": "books",
-    "sfSchema": "bronze",
     "sfWarehouse": "COMPUTE_WH",
     "parallelism": "64"
 }
 
-snow_conn = snowflake.connector.connect(
-    user=snowflake_username,
-    password=snowflake_password,
-    account=snowflake_account_name,
-    database="books",
-    schema="silver")
+# only texts are enriched with universo_literario
+tables = ['entities_dedup', 'entities_enriched']
 
-cur = snow_conn.cursor()
+def trim_upper_names(text):
+        return text.strip().upper()
 
-tables = [
-    ['texts_stream', 'dim_text']
-]
+udf_trim_upper_names = udf(lambda x: trim_upper_names(x), StringType())
 
-# prepare tables and streams
-for table in tables:
-    # creating table
-    create_table_sql = """create table if not exists BOOKS.GOLD.dim_text(
-        sk number
-    )"""
+sfOptions['schema'] = 'silver'
+texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
+            .options(**sfOptions) \
+            .option("query", f'select * from {tables[0]}') \
+            .load()
 
-    cur.execute(create_table_sql)
-    create_stream_sql = f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};' # creating stream for table
-    cur.execute(create_stream_sql)
-
-cur.close()
+entities_dedup_cleaned = texts_dedup\
+    .withColumn(
+        'name_cleaned',
+        udf_trim_upper_names(texts_dedup['name']))\
+    .drop_duplicates(["name_cleaned"])\
+    .drop('name')\
+    .withColumnRenamed('name_cleaned', 'name')
 
 
+sfOptions['schema'] = 'silver'
+entities_dedup_cleaned.write \
+        .format(SNOWFLAKE_SOURCE_NAME) \
+        .options(**sfOptions) \
+        .option("dbtable", f'entities_enriched')\
+        .mode("overwrite") \
+        .save()
 

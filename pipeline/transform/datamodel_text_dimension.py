@@ -52,21 +52,50 @@ snow_conn = snowflake.connector.connect(
 
 cur = snow_conn.cursor()
 
-tables = [
-    ['entities_dedup', 'dim_entities']
-]
+tables = ['texts_stream', 'dim_text']
 
-# prepare tables and streams
-for table in tables:
-    # creating table
-    create_table_sql = """create table if not exists BOOKS.GOLD.dim_text(
-        sk number
-    )"""
+cur.execute(
+    """
+    create table if not exists BOOKS.GOLD.dim_text(
+        sk number not null autoincrement primary key,
+        id varchar not null,
+        universo_literario varchar not null,
+        effective_from datetime not null default current_timestamp(),
+        is_effective boolean default true                                              
+    );
+    """
+)
 
-    cur.execute(create_table_sql)
-    create_stream_sql = f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};' # creating stream for table
-    cur.execute(create_stream_sql)
+cur.execute("BEGIN;")
+cur.execute(
+    """
+    merge into BOOKS.GOLD.dim_text dim_t
+        using(
+            select *
+            from BOOKS.SILVER.stream_texts_stream
+            where metadata$action='INSERT'
+        ) t_stream
+        on t_stream.id = dim_t.ID
+        when matched then
+            update set
+                IS_EFFECTIVE = false
+        when not matched then
+            insert(id, text, UNIVERSO_LITERARIO)
+            values(t_stream.ID, t_stream.TEXT, t_stream.UNIVERSO_LITERARIO);
+    """
+)
 
+cur.execute(
+    """
+    insert into BOOKS.GOLD.dim_text(id, text, universo_literario)
+        select id, text, UNIVERSO_LITERARIO
+        from BOOKS.SILVER.stream_texts_stream
+        where
+          metadata$action='INSERT' and
+          metadata$isupdate=TRUE;
+  """
+)
+cur.execute("COMMIT;")
 cur.close()
 
 
