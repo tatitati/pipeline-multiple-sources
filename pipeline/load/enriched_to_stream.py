@@ -77,14 +77,14 @@ for table in tables:
                         ETL_SOURCE, 
                         UNIVERSO_LITERARIO
                     from BOOKS.SILVER.TEXTS_ENRICHED
-                ) t_dedups
-                on t_stream.id = t_dedups.id
+                ) t_enriched
+                on t_stream.id = t_enriched.id
                 when matched then
                     update set 
-                        t_stream.UNIVERSO_LITERARIO = t_dedups.UNIVERSO_LITERARIO
+                        t_stream.UNIVERSO_LITERARIO = t_enriched.UNIVERSO_LITERARIO
                 when not matched then
                     insert(id, text, etl_created_at, etl_source, UNIVERSO_LITERARIO)
-                    values(t_dedups.ID, t_dedups.TEXT, t_dedups.ETL_CREATED_AT, t_dedups.ETL_SOURCE, t_dedups.UNIVERSO_LITERARIO);
+                    values(t_enriched.ID, t_enriched.TEXT, t_enriched.ETL_CREATED_AT, t_enriched.ETL_SOURCE, t_enriched.UNIVERSO_LITERARIO);
         
     """)
     cur.execute("COMMIT;")
