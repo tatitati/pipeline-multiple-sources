@@ -9,6 +9,7 @@ from pyspark import SparkContext
 import configparser
 import datetime
 import os
+from  pyspark.sql.functions import input_file_name
 import snowflake.connector
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import StructType, StructField, IntegerType, DateType, TimestampType, StringType
@@ -55,7 +56,7 @@ print("texts *.json:")
 textsJson = app.read.option("multiline", "true").json("./data/texts/*.json")
 textsJsonWithAggregates = textsJson\
     .withColumn("etl_created_at", lit(datetime.datetime.now()))\
-    .withColumn("etl_source", lit("data/texts/*.json"))
+    .withColumn("etl_source", input_file_name())
 print(textsJsonWithAggregates.count()) # 2286
 textsJsonWithAggregates.printSchema()
 # root
