@@ -53,9 +53,7 @@ snow_conn = snowflake.connector.connect(
 cur = snow_conn.cursor()
 
 tables = [
-    ['texts_stream', 'dim_text'],
-    ['entities_dedup', 'dim_entities'],
-    ['reads_dedup', 'fact_reads'],
+    ['entities_dedup', 'dim_entities']
 ]
 
 # prepare tables and streams
