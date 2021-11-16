@@ -52,11 +52,9 @@ tables = ['texts_dedup', 'texts_enriched']
 
 def get_prediction(text):
         LABELS = ["got", "lotr", "hp"]
-
         model = load('/Users/tati/lab/de/pipeline-multiple-sources/classification-service/classification_pipeline.joblib')
         class_index = model.predict([text])[0]
-        label = LABELS[class_index]
-        return label
+        return LABELS[class_index]
 
 udf_get_prediction = udf(lambda x: get_prediction(x), StringType())
 
@@ -69,7 +67,6 @@ texts_enriched = texts_dedup.withColumn(
     'universo_literario',
     udf_get_prediction(texts_dedup['text'])
 )
-texts_enriched.show()
 
 sfOptions['schema'] = 'silver'
 texts_enriched.write \
