@@ -63,9 +63,10 @@ cur = snow_conn.cursor()
 
 for listTables in tables:
 
-    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[1]} like {listTables[0]};')
-    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[2]} like {listTables[0]};')
+    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[1]} like {listTables[0]};') # create previous table if needed
+    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[2]} like {listTables[0]};') # create dedup table if needed
 
+    # insert into dedup MINUS result
     cur.execute("""
         insert into BOOKS.SILVER.%s
             select * from BOOKS.BRONZE.%s
