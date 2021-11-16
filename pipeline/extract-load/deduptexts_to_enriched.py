@@ -50,6 +50,7 @@ sfOptions = {
 # only texts are enriched with universo_literario
 tables = ['texts_dedup', 'texts_enriched']
 
+# add universon_literario
 def get_prediction(text):
         LABELS = ["got", "lotr", "hp"]
         model = load('/Users/tati/lab/de/pipeline-multiple-sources/classification-service/classification_pipeline.joblib')
@@ -58,7 +59,7 @@ def get_prediction(text):
 
 udf_get_prediction = udf(lambda x: get_prediction(x), StringType())
 
-sfOptions['schema'] = 'bronze'
+sfOptions['schema'] = 'silver'
 texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
             .options(**sfOptions) \
             .option("query", f'select * from {tables[0]}') \
@@ -68,6 +69,19 @@ texts_enriched = texts_dedup.withColumn(
     udf_get_prediction(texts_dedup['text'])
 )
 
+
+# add entities
+entities_df = app.read\
+    .format(SNOWFLAKE_SOURCE_NAME)\
+    .options(**sfOptions)\
+    .option("query", 'select name from BOOKS.SILVER.entities_enriched')\
+    .load()
+
+for index, row in entities_df.toPandas().iterrows():
+    texts_enriched = texts_enriched.withColumn(row['NAME'], lit(False))
+
+
+# save texts
 sfOptions['schema'] = 'silver'
 texts_enriched.write \
         .format(SNOWFLAKE_SOURCE_NAME) \
