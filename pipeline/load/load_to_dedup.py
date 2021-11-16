@@ -75,7 +75,7 @@ for listTables in tables:
             select * from BOOKS.BRONZE.%s
     """ % (listTables[2], listTables[0], listTables[1]))
 
-# swap
+# swap current-previous
 for table in tables:
     cur.execute(f'truncate table {table[1]};')
     cur.execute(f'alter table {table[1]} swap with {table[0]};')
