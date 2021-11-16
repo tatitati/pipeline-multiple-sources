@@ -65,8 +65,9 @@ for listTables in tables:
 
     cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[1]} like {listTables[0]};') # create previous table if needed
     cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[2]} like {listTables[0]};') # create dedup table if needed
+    cur.execute(f'truncate table BOOKS.BRONZE.{listTables[2]};')  # truncate dedup table
 
-    # insert into dedup MINUS result
+    # Current-Previous = Dedup
     cur.execute("""
         insert into BOOKS.SILVER.%s
             select * from BOOKS.BRONZE.%s
@@ -74,6 +75,7 @@ for listTables in tables:
             select * from BOOKS.BRONZE.%s
     """ % (listTables[2], listTables[0], listTables[1]))
 
+# swap
 for table in tables:
     cur.execute(f'truncate table {table[1]};')
     cur.execute(f'alter table {table[1]} swap with {table[0]};')
