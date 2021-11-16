@@ -45,9 +45,9 @@ sfOptions = {
 }
 
 snow_conn = snowflake.connector.connect(
-    user = snowflake_username,
-    password = snowflake_password,
-    account = snowflake_account_name,
+    user=snowflake_username,
+    password=snowflake_password,
+    account=snowflake_account_name,
     database="books",
     schema="silver")
 
@@ -58,20 +58,16 @@ tables = [
     ['texts_enriched', 'texts_stream'],
 ]
 
+cur = snow_conn.cursor()
+
 # prepare tables and streams
 for table in tables:
-    print("creating table")
-    create_table_sql = f'create table if not exists BOOKS.silver.{table[1]} like BOOKS.SILVER.{table[0]};'
-    cur = snow_conn.cursor()
-    cur.execute(create_table_sql)
+    cur.execute(f'create table if not exists BOOKS.silver.{table[1]} like BOOKS.SILVER.{table[0]};') # creating table
+    cur.execute(f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};') # creating stream for table
 
-    print("creating stream for table")
-    create_stream_sql = f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};'
-    cur = snow_conn.cursor()
-    cur.execute(create_stream_sql)
-
-    print("merging into table with stream")
-    merge_sql = """
+    # merging into table with stream
+    cur.execute("BEGIN;")
+    cur.execute("""
             merge into BOOKS.silver.TEXTS_STREAM t_stream
                 using(
                     select
@@ -90,10 +86,7 @@ for table in tables:
                     insert(id, text, etl_created_at, etl_source, UNIVERSO_LITERARIO)
                     values(t_dedups.ID, t_dedups.TEXT, t_dedups.ETL_CREATED_AT, t_dedups.ETL_SOURCE, t_dedups.UNIVERSO_LITERARIO);
         
-    """
-    cur = snow_conn.cursor()
-    cur.execute("BEGIN;")
-    cur.execute(merge_sql)
+    """)
     cur.execute("COMMIT;")
 
 cur.close()
