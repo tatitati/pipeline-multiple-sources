@@ -8,11 +8,15 @@ from pyspark.sql import SparkSession
 from pyspark import SparkContext
 import configparser
 import datetime
+from pyspark.sql.functions import udf
 import os
 import snowflake.connector
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import StructType, StructField, IntegerType, DateType, TimestampType, StringType
 from snowflake.connector import ProgrammingError
+from joblib import load
+
+
 
 jarPath='/Users/tati/lab/de/pipeline-user-orders/jars'
 jars = [
@@ -39,36 +43,39 @@ sfOptions = {
     "sfUser": snowflake_username,
     "sfPassword": snowflake_password,
     "sfDatabase": "books",
-    "sfSchema": "bronze",
     "sfWarehouse": "COMPUTE_WH",
     "parallelism": "64"
 }
 
-snow_conn = snowflake.connector.connect(
-    user = snowflake_username,
-    password = snowflake_password,
-    account = snowflake_account_name,
-    database="books",
-    schema="bronze")
+# only texts are enriched with universo_literario
+tables = ['texts_dedup', 'texts_enriched']
 
-# check if previous load exist:
+def get_prediction(text):
+        LABELS = ["got", "lotr", "hp"]
 
+        model = load('/Users/tati/lab/de/pipeline-multiple-sources/classification-service/classification_pipeline.joblib')
+        class_index = model.predict([text])[0]
+        label = LABELS[class_index]
+        return label
 
-swaps = [
-    ['entities_current_load', 'entities_previous_load'],
-    ['texts_current_load',    'texts_previous_load'],
-    ['reads_current_load',    'reads_previous_load'],
-]
+udf_get_prediction = udf(lambda x: get_prediction(x), StringType())
 
+sfOptions['schema'] = 'bronze'
+texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
+            .options(**sfOptions) \
+            .option("query", f'select * from {tables[0]}') \
+            .load()
+texts_enriched = texts_dedup.withColumn(
+    'universo_literario',
+    udf_get_prediction(texts_dedup['text'])
+)
+texts_enriched.show()
 
-for swap in swaps:
-    truncate_previous_sql = f'truncate table {swap[1]};'
-    swap_previous_current_sql = f'alter table {swap[1]} swap with {swap[0]};'
-    cur = snow_conn.cursor()
-    cur.execute(truncate_previous_sql)
-    cur.execute(swap_previous_current_sql)
-
-cur.close()
-
-
+sfOptions['schema'] = 'silver'
+texts_enriched.write \
+        .format(SNOWFLAKE_SOURCE_NAME) \
+        .options(**sfOptions) \
+        .option("dbtable", f'texts_enriched')\
+        .mode("overwrite") \
+        .save()
 

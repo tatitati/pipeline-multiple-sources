@@ -57,53 +57,24 @@ snow_conn = snowflake.connector.connect(
 tables = [
     ['entities_current_load', 'entities_previous_load', 'entities_dedup'],
     ['texts_current_load',    'texts_previous_load',    'texts_dedup'],
-    ['reads_current_load',    'reads_previous_load',    'reads_dedup'],
-]
+    ['reads_current_load',    'reads_previous_load',    'reads_dedup']]
 
+cur = snow_conn.cursor()
 
 for listTables in tables:
-    x_load_current = app.read.format(SNOWFLAKE_SOURCE_NAME) \
-                .options(**sfOptions) \
-                .option("query", f'select * from {listTables[0]}') \
-                .load()
 
-    x_load_previous = app.createDataFrame([], x_load_current.schema) # this can be replace by a "create table like ..."
+    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[1]} like {listTables[0]};')
+    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[2]} like {listTables[0]};')
 
-    previous_sql = """
-        SELECT count(*)
-        FROM information_schema.tables
-        where 
-            table_schema='BRONZE'
-            and table_name like '%s';
-    """
-    cur = snow_conn.cursor()
-    cur.execute(previous_sql % (listTables[1]))
-    for (col1) in cur:
-        if col1[0] > 0:
-            x_load_previous = app.read.format(SNOWFLAKE_SOURCE_NAME) \
-                .options(**sfOptions) \
-                .option("query", f'select * from {listTables[1]}') \
-                .load()
-            break
-        else:
-            print("creating previous table....") # this can be replace by a "create table like ..."
-            x_load_previous.write \
-                .format(SNOWFLAKE_SOURCE_NAME) \
-                .options(**sfOptions) \
-                .option("dbtable", f'{listTables[1]}') \
-                .mode("append") \
-                .save()
+    cur.execute("""
+        insert into BOOKS.SILVER.%s
+            select * from BOOKS.BRONZE.%s
+            minus
+            select * from BOOKS.BRONZE.%s
+    """ % (listTables[2], listTables[0], listTables[1]))
 
-    print("MINUS...")
-    x_dedup = x_load_current.subtract(x_load_previous)
-
-    print("saving...")
-    sfOptions['schema'] = 'silver'
-    x_dedup.write \
-        .format(SNOWFLAKE_SOURCE_NAME) \
-        .options(**sfOptions) \
-        .option("dbtable", f'{listTables[2]}')\
-        .mode("overwrite") \
-        .save()
+for table in tables:
+    cur.execute(f'truncate table {table[1]};')
+    cur.execute(f'alter table {table[1]} swap with {table[0]};')
 
 cur.close()

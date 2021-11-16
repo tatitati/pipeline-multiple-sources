@@ -110,14 +110,14 @@ sfOptions = {
     "parallelism": "64"
 }
 
-savings = [
+df_to_table = [
     #[ df , table ]
     [entitiesWithAggregates, "entities_current_load"],
     [textsJsonWithAggregates, "texts_current_load"],
     [readsParquetWithAggregates, "reads_current_load"],
 ]
 
-for saving in savings:
+for saving in df_to_table:
     if saving[0].count() > 0:
         saving[0].write\
             .format(SNOWFLAKE_SOURCE_NAME)\

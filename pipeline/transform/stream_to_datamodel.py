@@ -54,13 +54,17 @@ snow_conn = snowflake.connector.connect(
 
 
 tables = [
-    ['texts_enriched', 'texts_stream'],
+    ['TEXTS_STREAM', 'dim_text'],
+    ['entities_dedup', 'dim_entities'],
+    ['reads_dedup', 'fact_reads'],
 ]
 
 # prepare tables and streams
 for table in tables:
     print("creating table")
-    create_table_sql = f'create table if not exists BOOKS.silver.{table[1]} like BOOKS.SILVER.{table[0]};'
+    create_table_sql = """create table if not exists BOOKS.GOLD.dim_text(
+        sk number
+    )"""
     cur = snow_conn.cursor()
     cur.execute(create_table_sql)
 
@@ -69,31 +73,7 @@ for table in tables:
     cur = snow_conn.cursor()
     cur.execute(create_stream_sql)
 
-    print("merging into table with stream")
-    merge_sql = """
-            merge into BOOKS.silver.TEXTS_STREAM t_stream
-                using(
-                    select
-                        ID,
-                        TEXT,
-                        ETL_CREATED_AT,
-                        ETL_SOURCE, 
-                        UNIVERSO_LITERARIO
-                    from BOOKS.SILVER.TEXTS_ENRICHED
-                ) t_dedups
-                on t_stream.id = t_dedups.id
-                when matched then
-                    update set 
-                        t_stream.UNIVERSO_LITERARIO = t_dedups.UNIVERSO_LITERARIO
-                when not matched then
-                    insert(id, text, etl_created_at, etl_source, UNIVERSO_LITERARIO)
-                    values(t_dedups.ID, t_dedups.TEXT, t_dedups.ETL_CREATED_AT, t_dedups.ETL_SOURCE, t_dedups.UNIVERSO_LITERARIO);
 
-    """
-    cur = snow_conn.cursor()
-    cur.execute("BEGIN;")
-    cur.execute(merge_sql)
-    cur.execute("COMMIT;")
 
 cur.close()
 
