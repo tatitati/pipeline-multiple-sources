@@ -51,9 +51,6 @@ snow_conn = snowflake.connector.connect(
     database="books",
     schema="silver")
 
-# check if previous load exist:
-
-
 tables = [
     ['texts_enriched', 'texts_stream'],
 ]
@@ -68,7 +65,7 @@ for table in tables:
     # merging into table with stream
     cur.execute("BEGIN;")
     cur.execute("""
-        merge into BOOKS.silver.TEXTS_STREAM t_stream
+        merge into BOOKS.silver.texts_stream t_stream
             using(
                 select
                     ID,
@@ -90,6 +87,3 @@ for table in tables:
     cur.execute("COMMIT;")
 
 cur.close()
-
-
-

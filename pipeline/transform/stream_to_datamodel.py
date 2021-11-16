@@ -50,30 +50,24 @@ snow_conn = snowflake.connector.connect(
     database="books",
     schema="silver")
 
-# check if previous load exist:
-
+cur = snow_conn.cursor()
 
 tables = [
-    ['TEXTS_STREAM', 'dim_text'],
+    ['texts_stream', 'dim_text'],
     ['entities_dedup', 'dim_entities'],
     ['reads_dedup', 'fact_reads'],
 ]
 
 # prepare tables and streams
 for table in tables:
-    print("creating table")
+    # creating table
     create_table_sql = """create table if not exists BOOKS.GOLD.dim_text(
         sk number
     )"""
-    cur = snow_conn.cursor()
+
     cur.execute(create_table_sql)
-
-    print("creating stream for table")
-    create_stream_sql = f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};'
-    cur = snow_conn.cursor()
+    create_stream_sql = f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};' # creating stream for table
     cur.execute(create_stream_sql)
-
-
 
 cur.close()
 
