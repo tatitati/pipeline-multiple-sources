@@ -59,8 +59,8 @@ cur = snow_conn.cursor()
 
 # prepare tables and streams
 for table in tables:
-    cur.execute(f'create table if not exists BOOKS.silver.{table[1]} like BOOKS.SILVER.{table[0]};') # creating table
-    cur.execute(f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};') # creating stream for table
+    cur.execute(f'create table if not exists BOOKS.silver.{table[1]} like BOOKS.SILVER.{table[0]};') # creating table "texts_stream" it not exist
+    cur.execute(f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};') # creating stream for table "texts_stream" if not exists
 
     # merging into table with stream
     cur.execute("BEGIN;")
