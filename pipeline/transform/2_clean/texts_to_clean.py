@@ -16,21 +16,15 @@ from pyspark.sql.types import StructType, StructField, IntegerType, DateType, Ti
 from snowflake.connector import ProgrammingError
 from joblib import load
 
-
-
 jarPath='/Users/tati/lab/de/pipeline-user-orders/jars'
 jars = [
-    # spark-mysql
-    f'{jarPath}/spark-mysql/mysql-connector-java-8.0.12.jar',
     # spark-snowflake
     f'{jarPath}/spark-snowflake/snowflake-jdbc-3.13.10.jar',
     f'{jarPath}/spark-snowflake/spark-snowflake_2.12-2.9.2-spark_3.1.jar', # scala 2.12 + pyspark 3.1
 ]
 os.environ['PYSPARK_SUBMIT_ARGS'] = f'--jars {",".join(jars)}  pyspark-shell'
-
 context = SparkContext(master="local[*]", appName="readJSON")
 app = SparkSession.builder.appName("myapp").getOrCreate()
-
 
 parser = configparser.ConfigParser()
 parser.read("../pipeline.conf")
@@ -47,46 +41,32 @@ sfOptions = {
     "parallelism": "64"
 }
 
-# only texts are enriched with universo_literario
-tables = ['texts_dedup', 'texts_enriched']
+tables = ['texts_dedup', 'texts_clean']
 
-# add universon_literario
-def get_prediction(text):
-        LABELS = ["got", "lotr", "hp"]
-        model = load('/Users/tati/lab/de/pipeline-multiple-sources/classification-service/classification_pipeline.joblib')
-        class_index = model.predict([text])[0]
-        return LABELS[class_index]
-
-udf_get_prediction = udf(lambda x: get_prediction(x), StringType())
+def trim_upper_names(text):
+        return text.strip().upper()
+udf_trim_upper_names = udf(lambda x: trim_upper_names(x), StringType())
 
 sfOptions['schema'] = 'silver'
 texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
             .options(**sfOptions) \
             .option("query", f'select * from BOOKS.SILVER.{tables[0]}') \
             .load()
-texts_enriched = texts_dedup.withColumn(
-    'universo_literario',
-    udf_get_prediction(texts_dedup['text'])
-)
+
+entities_dedup_cleaned = texts_dedup\
+    .withColumn(
+        'name_cleaned',
+        udf_trim_upper_names(texts_dedup['name']))\
+    .drop_duplicates(["name_cleaned"])\
+    .drop('name')\
+    .withColumnRenamed('name_cleaned', 'name')
 
 
-# add entities
-entities_df = app.read\
-    .format(SNOWFLAKE_SOURCE_NAME)\
-    .options(**sfOptions)\
-    .option("query", 'select name from BOOKS.SILVER.entities_enriched')\
-    .load()
-
-for index, row in entities_df.toPandas().iterrows():
-    texts_enriched = texts_enriched.withColumn(row['NAME'], lit(False))
-
-
-# save texts
 sfOptions['schema'] = 'silver'
-texts_enriched.write \
+entities_dedup_cleaned.write \
         .format(SNOWFLAKE_SOURCE_NAME) \
         .options(**sfOptions) \
-        .option("dbtable", f'texts_enriched')\
+        .option("dbtable", f'entities_clean')\
         .mode("overwrite") \
         .save()
 
