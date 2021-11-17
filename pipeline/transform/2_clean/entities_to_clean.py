@@ -48,15 +48,15 @@ def trim_upper_names(text):
 udf_trim_upper_names = udf(lambda x: trim_upper_names(x), StringType())
 
 sfOptions['schema'] = 'silver'
-texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
+entities_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
             .options(**sfOptions) \
             .option("query", f'select * from BOOKS.SILVER.{tables[0]}') \
             .load()
 
-entities_dedup_cleaned = texts_dedup\
+entities_dedup_cleaned = entities_dedup\
     .withColumn(
         'name_cleaned',
-        udf_trim_upper_names(texts_dedup['name']))\
+        udf_trim_upper_names(entities_dedup['name']))\
     .drop_duplicates(["name_cleaned"])\
     .drop('name')\
     .withColumnRenamed('name_cleaned', 'name')

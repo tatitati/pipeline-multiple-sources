@@ -43,9 +43,9 @@ sfOptions = {
 
 tables = ['texts_dedup', 'texts_clean']
 
-def trim_upper_names(text):
-        return text.strip().upper()
-udf_trim_upper_names = udf(lambda x: trim_upper_names(x), StringType())
+def trim_texts(text):
+        return text.strip()
+udf_trim_texts = udf(lambda x: trim_texts(x), StringType())
 
 sfOptions['schema'] = 'silver'
 texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
@@ -55,18 +55,18 @@ texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
 
 entities_dedup_cleaned = texts_dedup\
     .withColumn(
-        'name_cleaned',
-        udf_trim_upper_names(texts_dedup['name']))\
-    .drop_duplicates(["name_cleaned"])\
-    .drop('name')\
-    .withColumnRenamed('name_cleaned', 'name')
+        'text_cleaned',
+        udf_trim_texts(texts_dedup['text']))\
+    .drop_duplicates(["text_cleaned"])\
+    .drop('text')\
+    .withColumnRenamed('text_cleaned', 'text')
 
 
 sfOptions['schema'] = 'silver'
 entities_dedup_cleaned.write \
         .format(SNOWFLAKE_SOURCE_NAME) \
         .options(**sfOptions) \
-        .option("dbtable", f'entities_clean')\
+        .option("dbtable", f'text_clean')\
         .mode("overwrite") \
         .save()
 
