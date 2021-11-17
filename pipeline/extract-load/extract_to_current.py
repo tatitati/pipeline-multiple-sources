@@ -35,7 +35,7 @@ print("reads parquet:")
 readsParquet=app.read.parquet("./data/trends.parquet")
 readsParquetWithAggregates = readsParquet\
     .withColumn("etl_created_at", lit(datetime.datetime.now()))\
-    .withColumn("etl_source", lit("data/trends.parquet"))
+    .withColumn("etl_source", input_file_name())
 print(readsParquetWithAggregates.count()) # 9265028
 readsParquetWithAggregates.printSchema()
 # root
@@ -79,7 +79,7 @@ entitiesTxt = app.read.text("./data/entities.txt")
 entitiesWithAggregates = entitiesTxt\
     .withColumnRenamed("value", "name")\
     .withColumn("etl_created_at", lit(datetime.datetime.now()))\
-    .withColumn("etl_source", lit("data/entities.txt"))
+    .withColumn("etl_source", input_file_name())
 print(entitiesWithAggregates.count()) # 602
 entitiesWithAggregates.printSchema()
 # root
@@ -118,11 +118,13 @@ df_to_table = [
     [readsParquetWithAggregates, "reads_current_load"],
 ]
 
-for saving in df_to_table:
-    if saving[0].count() > 0:
-        saving[0].write\
-            .format(SNOWFLAKE_SOURCE_NAME)\
-            .options(**sfOptions)\
-            .option("dbtable", saving[1])\
-            .mode("overwrite")\
-            .save()
+
+
+# for saving in df_to_table:
+#     if saving[0].count() > 0:
+#         saving[0].write\
+#             .format(SNOWFLAKE_SOURCE_NAME)\
+#             .options(**sfOptions)\
+#             .option("dbtable", saving[1])\
+#             .mode("overwrite")\
+#             .save()
