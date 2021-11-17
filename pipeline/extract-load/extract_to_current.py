@@ -17,16 +17,20 @@ from snowflake.connector import ProgrammingError
 
 jarPath='/Users/tati/lab/de/pipeline-user-orders/jars'
 jars = [
-    # spark-mysql
-    f'{jarPath}/spark-mysql/mysql-connector-java-8.0.12.jar',
     # spark-snowflake
     f'{jarPath}/spark-snowflake/snowflake-jdbc-3.13.10.jar',
     f'{jarPath}/spark-snowflake/spark-snowflake_2.12-2.9.2-spark_3.1.jar', # scala 2.12 + pyspark 3.1
 ]
 os.environ['PYSPARK_SUBMIT_ARGS'] = f'--jars {",".join(jars)}  pyspark-shell'
-
 context = SparkContext(master="local[*]", appName="readJSON")
 app = SparkSession.builder.appName("myapp").getOrCreate()
+
+parser = configparser.ConfigParser()
+parser.read("../pipeline.conf")
+snowflake_username = parser.get("snowflake_credentials", "username")
+snowflake_password = parser.get("snowflake_credentials", "password")
+snowflake_account_name = parser.get("snowflake_credentials", "account_name")
+SNOWFLAKE_SOURCE_NAME = "net.snowflake.spark.snowflake"
 
 #
 # extract
@@ -95,21 +99,6 @@ entitiesWithAggregates.show()
 # |      Arya|2021-11-15 13:41:...|data/entities.txt|
 # |   Catelyn|2021-11-15 13:41:...|data/entities.txt|
 
-parser = configparser.ConfigParser()
-parser.read("../pipeline.conf")
-snowflake_username = parser.get("snowflake_credentials", "username")
-snowflake_password = parser.get("snowflake_credentials", "password")
-snowflake_account_name = parser.get("snowflake_credentials", "account_name")
-SNOWFLAKE_SOURCE_NAME = "net.snowflake.spark.snowflake"
-sfOptions = {
-    "sfURL": f'{snowflake_account_name}.snowflakecomputing.com/',
-    "sfUser": snowflake_username,
-    "sfPassword": snowflake_password,
-    "sfDatabase": "books",
-    "sfSchema": "bronze",
-    "sfWarehouse": "COMPUTE_WH",
-    "parallelism": "64"
-}
 
 df_to_table = [
     #[ df , table ]
@@ -119,12 +108,20 @@ df_to_table = [
 ]
 
 
-
-# for saving in df_to_table:
-#     if saving[0].count() > 0:
-#         saving[0].write\
-#             .format(SNOWFLAKE_SOURCE_NAME)\
-#             .options(**sfOptions)\
-#             .option("dbtable", saving[1])\
-#             .mode("overwrite")\
-#             .save()
+sfOptions = {
+    "sfURL": f'{snowflake_account_name}.snowflakecomputing.com/',
+    "sfUser": snowflake_username,
+    "sfPassword": snowflake_password,
+    "sfDatabase": "books",
+    "sfSchema": "bronze",
+    "sfWarehouse": "COMPUTE_WH",
+    "parallelism": "64"
+}
+for saving in df_to_table:
+    if saving[0].count() > 0:
+        saving[0].write\
+            .format(SNOWFLAKE_SOURCE_NAME)\
+            .options(**sfOptions)\
+            .option("dbtable", saving[1])\
+            .mode("overwrite")\
+            .save()
