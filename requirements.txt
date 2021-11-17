@@ -11,3 +11,4 @@ pandas
 botocore==1.20.106
 boto3
 snowflake-connector-python
+great_expectations
