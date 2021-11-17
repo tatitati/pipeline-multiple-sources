@@ -68,7 +68,7 @@ texts_enriched = texts_dedup.withColumn(
 entities_df = app.read\
     .format(SNOWFLAKE_SOURCE_NAME)\
     .options(**sfOptions)\
-    .option("query", 'select name from BOOKS.SILVER.entities_enriched')\
+    .option("query", 'select name from BOOKS.SILVER.entities_clean')\
     .load()
 
 for index, row in entities_df.toPandas().iterrows():
