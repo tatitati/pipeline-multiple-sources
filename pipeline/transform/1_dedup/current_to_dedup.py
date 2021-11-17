@@ -46,7 +46,7 @@ tables = [
 
 for listTables in tables:
     cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[1]} like {listTables[0]};') # create "previous" table if needed
-    cur.execute(f'create table if not exists BOOKS.BRONZE.{listTables[2]} like {listTables[0]};') # create "dedup" table if needed
+    cur.execute(f'create table if not exists BOOKS.SILVER.{listTables[2]} like {listTables[0]};') # create "dedup" table if needed
 
     # Current-Previous = Dedup
     cur.execute(f'truncate table BOOKS.BRONZE.{listTables[2]};')  # truncate "dedup" table
@@ -59,7 +59,7 @@ for listTables in tables:
 
 # swap current-previous
 for table in tables:
-    cur.execute(f'alter table {table[1]} swap with {table[0]};') # swap current-previous
-    cur.execute(f'truncate table {table[0]};') # truncate current
+    cur.execute(f'alter table BOOKS.BRONZE.{table[1]} swap with {table[0]};') # swap current-previous
+    cur.execute(f'truncate table BOOKS.BRONZE.{table[0]};') # truncate current
 
 cur.close()

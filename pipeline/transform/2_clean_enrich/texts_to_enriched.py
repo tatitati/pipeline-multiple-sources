@@ -8,11 +8,15 @@ from pyspark.sql import SparkSession
 from pyspark import SparkContext
 import configparser
 import datetime
+from pyspark.sql.functions import udf
 import os
 import snowflake.connector
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import StructType, StructField, IntegerType, DateType, TimestampType, StringType
 from snowflake.connector import ProgrammingError
+from joblib import load
+
+
 
 jarPath='/Users/tati/lab/de/pipeline-user-orders/jars'
 jars = [
@@ -39,51 +43,50 @@ sfOptions = {
     "sfUser": snowflake_username,
     "sfPassword": snowflake_password,
     "sfDatabase": "books",
-    "sfSchema": "bronze",
     "sfWarehouse": "COMPUTE_WH",
     "parallelism": "64"
 }
 
-snow_conn = snowflake.connector.connect(
-    user=snowflake_username,
-    password=snowflake_password,
-    account=snowflake_account_name,
-    database="books",
-    schema="silver")
+# only texts are enriched with universo_literario
+tables = ['texts_dedup', 'texts_enriched']
 
-tables = [
-    ['texts_enriched', 'texts_stream'],
-]
+# add universon_literario
+def get_prediction(text):
+        LABELS = ["got", "lotr", "hp"]
+        model = load('/Users/tati/lab/de/pipeline-multiple-sources/classification-service/classification_pipeline.joblib')
+        class_index = model.predict([text])[0]
+        return LABELS[class_index]
 
-cur = snow_conn.cursor()
+udf_get_prediction = udf(lambda x: get_prediction(x), StringType())
 
-# prepare tables and streams
-for table in tables:
-    cur.execute(f'create table if not exists BOOKS.silver.{table[1]} like BOOKS.SILVER.{table[0]};') # creating table
-    cur.execute(f'CREATE STREAM if not exists stream_{table[1]} ON TABLE BOOKS.SILVER.{table[1]};') # creating stream for table
+sfOptions['schema'] = 'silver'
+texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
+            .options(**sfOptions) \
+            .option("query", f'select * from BOOKS.SILVER.{tables[0]}') \
+            .load()
+texts_enriched = texts_dedup.withColumn(
+    'universo_literario',
+    udf_get_prediction(texts_dedup['text'])
+)
 
-    # merging into table with stream
-    cur.execute("BEGIN;")
-    cur.execute("""
-        merge into BOOKS.silver.texts_stream t_stream
-            using(
-                select
-                    ID,
-                    TEXT,
-                    ETL_CREATED_AT,
-                    ETL_SOURCE, 
-                    UNIVERSO_LITERARIO
-                from BOOKS.SILVER.TEXTS_ENRICHED
-            ) t_enriched
-            on t_stream.id = t_enriched.id
-            when matched then
-                update set 
-                    t_stream.UNIVERSO_LITERARIO = t_enriched.UNIVERSO_LITERARIO
-            when not matched then
-                insert(id, text, etl_created_at, etl_source, UNIVERSO_LITERARIO)
-                values(t_enriched.ID, t_enriched.TEXT, t_enriched.ETL_CREATED_AT, t_enriched.ETL_SOURCE, t_enriched.UNIVERSO_LITERARIO);
-        
-    """)
-    cur.execute("COMMIT;")
 
-cur.close()
+# add entities
+entities_df = app.read\
+    .format(SNOWFLAKE_SOURCE_NAME)\
+    .options(**sfOptions)\
+    .option("query", 'select name from BOOKS.SILVER.entities_enriched')\
+    .load()
+
+for index, row in entities_df.toPandas().iterrows():
+    texts_enriched = texts_enriched.withColumn(row['NAME'], lit(False))
+
+
+# save texts
+sfOptions['schema'] = 'silver'
+texts_enriched.write \
+        .format(SNOWFLAKE_SOURCE_NAME) \
+        .options(**sfOptions) \
+        .option("dbtable", f'texts_enriched')\
+        .mode("overwrite") \
+        .save()
+
