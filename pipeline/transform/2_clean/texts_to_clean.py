@@ -38,7 +38,8 @@ sfOptions = {
     "sfPassword": snowflake_password,
     "sfDatabase": "books",
     "sfWarehouse": "COMPUTE_WH",
-    "parallelism": "64"
+    "parallelism": "64",
+    "schema": "silver"
 }
 
 tables = ['texts_dedup', 'texts_clean']
@@ -47,7 +48,6 @@ def trim_texts(text):
         return text.strip()
 udf_trim_texts = udf(lambda x: trim_texts(x), StringType())
 
-sfOptions['schema'] = 'silver'
 texts_dedup = app.read.format(SNOWFLAKE_SOURCE_NAME) \
             .options(**sfOptions) \
             .option("query", f'select * from BOOKS.SILVER.{tables[0]}') \
@@ -61,8 +61,6 @@ entities_dedup_cleaned = texts_dedup\
     .drop('text')\
     .withColumnRenamed('text_cleaned', 'text')
 
-
-sfOptions['schema'] = 'silver'
 entities_dedup_cleaned.write \
         .format(SNOWFLAKE_SOURCE_NAME) \
         .options(**sfOptions) \
